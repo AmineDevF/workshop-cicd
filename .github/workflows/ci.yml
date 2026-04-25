@@ -1,0 +1,75 @@
+# .github/workflows/ci.yml
+name: CI (PR) - PHPUnit
+
+on:
+  pull_request:
+    branches: [preprod, master]
+
+jobs:
+  test:
+    name: "🧪 PHPUnit + MySQL"
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: workshop_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-interval=5s
+          --health-timeout=20s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "🐘 PHP 8.2 + MySQL extensions"
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql
+          coverage: none
+
+      - name: "📦 Cache Composer"
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-
+
+      - name: "⬇️ Installer les dépendances"
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: "⚙️ Préparer .env.testing"
+        run: |
+          printf '%s\n' \
+            'APP_NAME=Laravel' \
+            'APP_ENV=testing' \
+            'APP_KEY=' \
+            'APP_DEBUG=true' \
+            'LOG_CHANNEL=stack' \
+            'DB_CONNECTION=mysql' \
+            'DB_HOST=127.0.0.1' \
+            'DB_PORT=3306' \
+            'DB_DATABASE=workshop_test' \
+            'DB_USERNAME=root' \
+            'DB_PASSWORD=root' \
+            'CACHE_DRIVER=array' \
+            'SESSION_DRIVER=array' \
+            'QUEUE_CONNECTION=sync' \
+            > .env.testing
+          php artisan key:generate --env=testing --force
+
+      - name: "🗄️ Migrations"
+        env:
+          APP_ENV: testing
+        run: php artisan migrate --env=testing --force
+
+      - name: "🧪 Tests"
+        env:
+          APP_ENV: testing
+        run: php artisan test --env=testing
