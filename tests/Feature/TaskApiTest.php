@@ -18,7 +18,7 @@ class TaskApiTest extends TestCase {
 
     /** @test */
     public function it_returns_empty_array_when_no_tasks(): void {
-        $this->getJson('/api/tasks')
+        $this->getJson('/api/taskss')
              ->assertStatus(200)
              ->assertJson([]);
     }
